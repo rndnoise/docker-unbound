@@ -1,28 +1,31 @@
-FROM debian:buster as openssl
-LABEL maintainer="Matthew Vance"
+FROM debian:buster-slim as openssl
 
-ENV VERSION_OPENSSL=openssl-1.1.1g
-ENV SHA256_OPENSSL=ddb04774f1e32f0c49751e21b67216ac87852ceb056b75209af2443400636d46
-ENV SOURCE_OPENSSL=https://www.openssl.org/source/
-ENV OPGP_OPENSSL=8657ABB260F056B1E5190839D9C4D26D0E604491
+ENV OPENSSL_VERSION=openssl-1.1.1g \
+    OPENSSL_SHA256=ddb04774f1e32f0c49751e21b67216ac87852ceb056b75209af2443400636d46 \
+    OPENSSL_SOURCE=https://www.openssl.org/source/ \
+    OPENSSL_OPGP=8657ABB260F056B1E5190839D9C4D26D0E604491
 
 WORKDIR /tmp/src
 
-RUN set -e -x && \
-    build_deps="build-essential ca-certificates curl dirmngr gnupg libidn2-0-dev libssl-dev" && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      $build_deps && \
-    curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz -o openssl.tar.gz && \
-    echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c - && \
-    curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz.asc -o openssl.tar.gz.asc && \
+ENV build_deps="build-essential ca-certificates curl dirmngr gnupg libidn2-0-dev libssl-dev"
+RUN set -eux && \
+    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends $build_deps && \
+    c_rehash && \
+    curl -L "${OPENSSL_SOURCE}${OPENSSL_VERSION}.tar.gz" -o openssl.tar.gz && \
+    echo "${OPENSSL_SHA256} ./openssl.tar.gz" | sha256sum -c - && \
+    curl -L "${OPENSSL_SOURCE}${OPENSSL_VERSION}".tar.gz.asc -o openssl.tar.gz.asc && \
     GNUPGHOME="$(mktemp -d)" && \
     export GNUPGHOME && \
-    ( gpg --no-tty --keyserver ipv4.pool.sks-keyservers.net --recv-keys "$OPGP_OPENSSL" \
-    || gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys "$OPGP_OPENSSL" ) && \
-    gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz && \
-    tar xzf openssl.tar.gz && \
-    cd $VERSION_OPENSSL && \
-    ./Configure linux-x32 && \
+    ( gpg --no-tty --keyserver ipv4.pool.sks-keyservers.net --recv-keys "$OPENSSL_OPGP" \
+      || gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys "$OPENSSL_OPGP" ) && \
+    gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
+    # && \
+
+ENV CFLAGS="-march=armv6zk -mcpu=arm1176jzf-s"
+#-mfloat-abi=hard -mfpu=vfp"
+RUN tar xzf openssl.tar.gz && \
+    cd "${OPENSSL_VERSION}" && \
+    ./Configure linux-armv4 && \
     ./config \
       --prefix=/opt/openssl \
       --openssldir=/opt/openssl \
@@ -34,27 +37,28 @@ RUN set -e -x && \
     make depend && \
     make && \
     make install_sw && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
+    apt-get purge -y --auto-remove $build_deps && \
     rm -rf \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-FROM debian:buster as unbound
-LABEL maintainer="Matthew Vance"
+###############################################################################
+
+FROM debian:buster-slim as unbound
 
 ENV NAME=unbound \
     UNBOUND_VERSION=1.11.0 \
     UNBOUND_SHA256=9f2f0798f76eb8f30feaeda7e442ceed479bc54db0e3ac19c052d68685e51ef7 \
-    UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.11.0.tar.gz
+    UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/unbound-1.11.0.tar.gz
 
 WORKDIR /tmp/src
 
 COPY --from=openssl /opt/openssl /opt/openssl
 
+ENV CFLAGS="-march=armv6zk -mcpu=arm1176jzf-s"
 RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
-    set -x && \
+    set -eux && \
     DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
       $build_deps \
       bsdmainutils \
@@ -62,11 +66,12 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
       ldnsutils \
       libevent-2.1-6 \
       libexpat1 && \
-    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz && \
+    c_rehash && \
+    curl -sSL "${UNBOUND_SOURCE}" -o unbound.tar.gz && \
     echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
     tar xzf unbound.tar.gz && \
     rm -f unbound.tar.gz && \
-    cd unbound-1.11.0 && \
+    cd "unbound-${UNBOUND_VERSION}" && \
     groupadd _unbound && \
     useradd -g _unbound -s /etc -d /dev/null _unbound && \
     ./configure \
@@ -80,65 +85,45 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
         --enable-tfo-client \
         --enable-event-api && \
     make install && \
-    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
+    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.example && \
+    apt-get purge -y --auto-remove $build_deps && \
     rm -rf \
         /opt/unbound/share/man \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-
-FROM debian:buster
-LABEL maintainer="Matthew Vance"
-
-ENV NAME=unbound \
-    VERSION=1.0 \
-    SUMMARY="${NAME} is a validating, recursive, and caching DNS resolver." \
-    DESCRIPTION="${NAME} is a validating, recursive, and caching DNS resolver."
-
-LABEL summary="${SUMMARY}" \
-      description="${DESCRIPTION}" \
-      io.k8s.description="${DESCRIPTION}" \
-      io.k8s.display-name="Unbound ${UNBOUND_VERSION}" \
-      name="mvance/${NAME}" \
-      maintainer="Matthew Vance"
-
-WORKDIR /tmp/src
+FROM debian:buster-slim
 
 COPY --from=unbound /opt /opt
 
-RUN set -x && \
+RUN set -eux && \
     DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
       bsdmainutils \
       ca-certificates \
       ldnsutils \
       libevent-2.1-6\
       libexpat1 && \
+    c_rehash && \
     groupadd _unbound && \
     useradd -g _unbound -s /etc -d /dev/null _unbound && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
+    apt-get purge -y --auto-remove && \
     rm -rf \
         /opt/unbound/share/man \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-COPY a-records.conf /opt/unbound/etc/unbound/
-COPY unbound.sh /
-
-RUN chmod +x /unbound.sh
+COPY root/opt/unbound/etc/unbound/* /opt/unbound/etc/unbound/
+COPY root/startup.sh                /
+RUN chmod +x                        /startup.sh
 
 WORKDIR /opt/unbound/
-
 ENV PATH /opt/unbound/sbin:"$PATH"
 
 EXPOSE 53/tcp
 EXPOSE 53/udp
 
-HEALTHCHECK --interval=5s --timeout=3s --start-period=5s CMD drill @127.0.0.1 cloudflare.com || exit 1
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s CMD drill @127.0.0.1 localhost || exit 1
 
-CMD ["/unbound.sh"]
-
+CMD ["/startup.sh"]

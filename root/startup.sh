@@ -31,7 +31,7 @@ fi
 [ ! -f /opt/unbound/etc/unbound/unbound.conf ] && \
     cp /opt/unbound/etc/unbound/unbound.{example,conf}
 
-sed -i.xyz \
+sed -i"" \
     -e "s/@MSG_CACHE_SIZE@/${msg_cache_size}/" \
     -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
     -e "s/@THREADS@/${threads}/" \

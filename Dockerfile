@@ -1,6 +1,13 @@
-FROM debian:buster-slim as openssl
+# Build openssl
+###############################################################################
 
-ENV OPENSSL_VERSION=openssl-1.1.1g \
+FROM debian:buster-slim as openssl
+COPY CFLAGS.sh    /usr/bin/
+COPY PLATFORM.sh  /usr/bin/
+
+ARG TARGETPLATFORM
+ENV TARGETPLATFORM=$TARGETPLATFORM \
+    OPENSSL_VERSION=openssl-1.1.1g \
     OPENSSL_SHA256=ddb04774f1e32f0c49751e21b67216ac87852ceb056b75209af2443400636d46 \
     OPENSSL_SOURCE=https://www.openssl.org/source/ \
     OPENSSL_OPGP=8657ABB260F056B1E5190839D9C4D26D0E604491
@@ -21,12 +28,10 @@ RUN set -eux && \
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     # && \
 
-ENV CFLAGS="-march=armv6zk -mcpu=arm1176jzf-s"
-#-mfloat-abi=hard -mfpu=vfp"
 RUN tar xzf openssl.tar.gz && \
     cd "${OPENSSL_VERSION}" && \
-    ./Configure linux-armv4 && \
-    ./config \
+    CFLAGS.sh ./Configure $(PLATFORM.sh) && \
+    CFLAGS.sh ./config \
       --prefix=/opt/openssl \
       --openssldir=/opt/openssl \
       no-weak-ssl-ciphers \
@@ -34,29 +39,31 @@ RUN tar xzf openssl.tar.gz && \
       no-shared \
       -DOPENSSL_NO_HEARTBEATS \
       -fstack-protector-strong && \
-    make depend && \
-    make && \
-    make install_sw && \
+    CFLAGS.sh make depend && \
+    CFLAGS.sh make && \
+    CFLAGS.sh make install_sw && \
     apt-get purge -y --auto-remove $build_deps && \
     rm -rf \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
+# Build unbound
 ###############################################################################
 
 FROM debian:buster-slim as unbound
+COPY CFLAGS.sh /usr/bin/CFLAGS.sh
 
-ENV NAME=unbound \
+ARG TARGETPLATFORM
+ENV TARGETPLATFORM=$TARGETPLATFORM \
     UNBOUND_VERSION=1.11.0 \
     UNBOUND_SHA256=9f2f0798f76eb8f30feaeda7e442ceed479bc54db0e3ac19c052d68685e51ef7 \
     UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/unbound-1.11.0.tar.gz
 
 WORKDIR /tmp/src
 
-COPY --from=openssl /opt/openssl /opt/openssl
+COPY --from=openssl /opt/openssl  /opt/openssl
 
-ENV CFLAGS="-march=armv6zk -mcpu=arm1176jzf-s"
 RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
     set -eux && \
     DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
@@ -74,7 +81,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
     cd "unbound-${UNBOUND_VERSION}" && \
     groupadd _unbound && \
     useradd -g _unbound -s /etc -d /dev/null _unbound && \
-    ./configure \
+    CFLAGS.sh ./configure \
         --disable-dependency-tracking \
         --prefix=/opt/unbound \
         --with-pthreads \
@@ -84,7 +91,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
         --enable-tfo-server \
         --enable-tfo-client \
         --enable-event-api && \
-    make install && \
+    CFLAGS.sh make install && \
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.example && \
     apt-get purge -y --auto-remove $build_deps && \
     rm -rf \
@@ -92,6 +99,9 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
+
+# Runtime environment
+###############################################################################
 
 FROM debian:buster-slim
 

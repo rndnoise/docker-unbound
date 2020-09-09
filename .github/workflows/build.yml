@@ -63,7 +63,7 @@ jobs:
           echo ::set-output name=gitsha::${GITHUB_SHA::8}
 
           # Temporary workaround (don't build linux/arm/v7) https://github.com/moby/moby/issues/41017
-          echo ::set-output name=docker_platforms::linux/arm/v6
+          echo ::set-output name=docker_platforms::linux/arm/v6,linux/arm64,linux/amd64
           echo ::set-output name=docker_image::${GITHUB_REPO##*/docker-}
 
           echo ::set-output name=unbound_version::$(grep "UNBOUND_VERSION=" Dockerfile | head -1 | grep -o "[0-9.]+")

@@ -24,13 +24,13 @@ NPROC=$(nproc)
 OUTGOING_RANGE=$((1024/NPROC - 50))
 QUERIES_PER_THREAD=$((OUTGOING_RANGE / 2))
 
-if [ "$nproc" -gt 1 ]; then
+if [ "$NPROC" -gt 1 ]; then
     export NPROC
     LG_NPROC=$(perl -e 'printf "%d\n", int(log($ENV{NPROC})/log(2.0));')
 
     # Power of 2 that's close to nproc
     SLABS=$(( 2 ** LG_NPROC))
-    THREADS=$(($nproc - 1))
+    THREADS=$(($NPROC - 1))
 else
     SLABS=4
     THREADS=1

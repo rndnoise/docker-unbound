@@ -58,11 +58,11 @@ chown _unbound:_unbound $ROOT/etc/unbound/var
 
 rm -f $ROOT/etc/unbound/unbound.pid
 
-if [[ -n "$VERBOSE" && "$VERBOSE" -gt 0 ]]; then
-    # VERBOSE=3 becomes VERBOSE="-v -v -v"
-    $VERBOSE=$(printf -- "-v %.0s" $(seq 1 $VERBOSE))
+if [[ -z ${VERBOSE+x} || "$VERBOSE" -le 0 ]]; then
+    VERBOSE=""
 else
-    $VERBOSE=""
+    # VERBOSE=3 becomes VERBOSE="-v -v -v"
+    VERBOSE=$(printf -- "-v %.0s" $(seq 1 $VERBOSE))
 fi
 
 $ROOT/sbin/unbound-anchor -a $ROOT/etc/unbound/root.key

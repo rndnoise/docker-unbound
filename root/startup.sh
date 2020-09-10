@@ -59,4 +59,4 @@ chown _unbound:_unbound $ROOT/etc/unbound/var
 rm -f $ROOT/etc/unbound/unbound.pid
 
 $ROOT/sbin/unbound-anchor -a $ROOT/etc/unbound/root.key
-exec $ROOT/sbin/unbound -d -c $ROOT/etc/unbound/unbound.conf
+exec $ROOT/sbin/unbound -c $ROOT/etc/unbound/unbound.conf -d -v -v

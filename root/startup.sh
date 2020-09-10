@@ -2,48 +2,61 @@
 set -eu
 
 # in kilobytes
-reservedMemory=$(( 12 * 1024 )) # 12 MB
-availableMemory=$((grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g')
+RESERVED_MEM=$(( 12 * 1024 )) # 12 MB
+AVAILABLE_MEM=$((grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g')
 
-if [ $availableMemory -le $((2 * $reservedMemory)) ]; then
+if [ $AVAILABLE_MEM -le $((2 * $RESERVED_MEM)) ]; then
     echo "Not enough memory" >&2
     exit 1
 fi
 
 # in bytes
-availableMemory=$((1024 * ($availableMemory - $reservedMemory)))
+AVAILABLE_MEM=$((1024 * ($AVAILABLE_MEM - $RESERVED_MEM)))
 
-rr_cache_size=$(($availableMemory / 3))
-msg_cache_size=$(($rr_cache_size / 2))
+# rrset-cache should be roughly twice msg-cache
+RR_CACHE_SIZE=$(($AVAILABLE_MEM / 3))
+MSG_CACHE_SIZE=$(($RR_CACHE_SIZE / 2))
 
-nproc=$(nproc)
+NPROC=$(nproc)
+
+# When compiled with libevent, outgoing-range: 8192 and num_queries_per_thread:
+# 4096 are recommended values. Otherwise, these values should be used:
+OUTGOING_RANGE=$((1024/NPROC - 50))
+QUERIES_PER_THREAD=$((OUTGOING_RANGE / 2))
 
 if [ "$nproc" -gt 1 ]; then
-    export nproc
-    lg_nproc=$(perl -e 'printf "%d\n", int(log($ENV{nproc})/log(2.0));')
-    slabs=$(( 2 ** lg_nproc))
-    threads=$(($nproc - 1))
+    export NPROC
+    LG_NPROC=$(perl -e 'printf "%d\n", int(log($ENV{NPROC})/log(2.0));')
+
+    # Power of 2 that's close to nproc
+    SLABS=$(( 2 ** LG_NPROC))
+    THREADS=$(($nproc - 1))
 else
-    slabs=4
-    threads=1
+    SLABS=4
+    THREADS=1
 fi
 
-[ ! -f /opt/unbound/etc/unbound/unbound.conf ] && \
-    cp /opt/unbound/etc/unbound/unbound.{example,conf}
+ROOT=/opt/unbound
+
+[ ! -f $ROOT/etc/unbound/unbound.conf ] && \
+    cp $ROOT/etc/unbound/unbound.{example,conf}
 
 sed -i"" \
-    -e "s/@MSG_CACHE_SIZE@/${msg_cache_size}/" \
-    -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
-    -e "s/@THREADS@/${threads}/" \
-    -e "s/@SLABS@/${slabs}/" \
-    /opt/unbound/etc/unbound/unbound.conf
+    -e "S/@QUERIES_PER_THREAD@/${QUERIES_PER_THREAD}/" \
+    -e "S/@OUTGOING_RANGE@/${OUTGOING_RANGE}/" \
+    -e "S/@MSG_CACHE_SIZE@/${MSG_CACHE_SIZE}/" \
+    -e "S/@RR_CACHE_SIZE@/${RR_CACHE_SIZE}/" \
+    -e "S/@THREADS@/${THREADS}/" \
+    -e "S/@SLABS@/${SLABS}/" \
+    $ROOT/etc/unbound/unbound.conf
 
-mkdir -p                         /opt/unbound/etc/unbound/dev
-cp -a /dev/{null,random,urandom} /opt/unbound/etc/unbound/dev/
+mkdir -p                         $ROOT/etc/unbound/dev
+cp -a /dev/{null,random,urandom} $ROOT/etc/unbound/dev/
 
-mkdir -p -m 700         /opt/unbound/etc/unbound/var
-chown _unbound:_unbound /opt/unbound/etc/unbound/var
+mkdir -p -m 700         $ROOT/etc/unbound/var
+chown _unbound:_unbound $ROOT/etc/unbound/var
 
-/opt/unbound/sbin/unbound-anchor -a /opt/unbound/etc/unbound/var/root.key
+rm -f $ROOT/etc/unbound/unbound.pid
 
-exec /opt/unbound/sbin/unbound -d -c /opt/unbound/etc/unbound/unbound.conf
+$ROOT/sbin/unbound-anchor -a $ROOT/etc/unbound/root.key
+exec $ROOT/sbin/unbound -d -c $ROOT/etc/unbound/unbound.conf

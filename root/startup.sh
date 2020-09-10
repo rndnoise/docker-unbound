@@ -50,8 +50,8 @@ sed -i"" \
     -e "s/@SLABS@/${SLABS}/" \
     $ROOT/etc/unbound/unbound.conf
 
-mkdir -p                         $ROOT/etc/unbound/dev
-cp -a /dev/{null,random,urandom} $ROOT/etc/unbound/dev/
+mkdir -p                                $ROOT/etc/unbound/dev
+cp -a /dev/{null,stdout,random,urandom} $ROOT/etc/unbound/dev/
 
 mkdir -p -m 700         $ROOT/etc/unbound/var
 chown _unbound:_unbound $ROOT/etc/unbound/var

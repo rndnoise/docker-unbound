@@ -50,8 +50,8 @@ sed -i"" \
     -e "s/@SLABS@/${SLABS}/" \
     $ROOT/etc/unbound/unbound.conf
 
-mkdir -p                                $ROOT/etc/unbound/dev
-cp -a /dev/{null,stdout,random,urandom} $ROOT/etc/unbound/dev/
+mkdir -p                                       $ROOT/etc/unbound/dev
+cp -a /dev/{null,stderr,stdout,random,urandom} $ROOT/etc/unbound/dev/
 
 mkdir -p -m 700         $ROOT/etc/unbound/var
 chown _unbound:_unbound $ROOT/etc/unbound/var
@@ -65,5 +65,5 @@ else
     VERBOSE=$(printf -- "-v %.0s" $(seq 1 $VERBOSE))
 fi
 
-$ROOT/sbin/unbound-anchor -a $ROOT/etc/unbound/root.key
+$ROOT/sbin/unbound-anchor -a $ROOT/etc/unbound/var/root.key
 exec $ROOT/sbin/unbound -c $ROOT/etc/unbound/unbound.conf -d $VERBOSE

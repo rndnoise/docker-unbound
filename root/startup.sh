@@ -42,12 +42,12 @@ ROOT=/opt/unbound
     cp $ROOT/etc/unbound/unbound.{example,conf}
 
 sed -i"" \
-    -e "S/@QUERIES_PER_THREAD@/${QUERIES_PER_THREAD}/" \
-    -e "S/@OUTGOING_RANGE@/${OUTGOING_RANGE}/" \
-    -e "S/@MSG_CACHE_SIZE@/${MSG_CACHE_SIZE}/" \
-    -e "S/@RR_CACHE_SIZE@/${RR_CACHE_SIZE}/" \
-    -e "S/@THREADS@/${THREADS}/" \
-    -e "S/@SLABS@/${SLABS}/" \
+    -e "s/@QUERIES_PER_THREAD@/${QUERIES_PER_THREAD}/" \
+    -e "s/@OUTGOING_RANGE@/${OUTGOING_RANGE}/" \
+    -e "s/@MSG_CACHE_SIZE@/${MSG_CACHE_SIZE}/" \
+    -e "s/@RR_CACHE_SIZE@/${RR_CACHE_SIZE}/" \
+    -e "s/@THREADS@/${THREADS}/" \
+    -e "s/@SLABS@/${SLABS}/" \
     $ROOT/etc/unbound/unbound.conf
 
 mkdir -p                         $ROOT/etc/unbound/dev

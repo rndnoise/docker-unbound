@@ -1,6 +1,41 @@
 #!/bin/bash
 set -eu
 
+# reown <user|group> [NAME] [NEW ID]
+function reown {
+    kind="$1"
+    name="$2"
+    new="$3"
+
+    case "$kind" in
+        user)
+            old=$(getent passwd "$name" | cut -d: -f3)
+            own="chown"
+            mod="usermod -o -u"
+            ;;
+        group)
+            old=$(getent group "$name" | cut -d: -f3)
+            own="chgrp"
+            mod="groupmod -o -g"
+            ;;
+        *)
+            echo "bad argument" >/dev/stderr
+            exit 1
+            ;;
+    esac
+
+    echo "changing id of $kind $name from $old to $new"
+    $mod $new $name
+
+    for path in $(find / "-$kind" "$old" 2>/dev/null); do
+        echo "fixing ownership of $path"
+        $own "$name" "$path"
+    done
+}
+
+[[ -n "${UNBOUND_UID+x}" ]] && reown user  _unbound "$UNBOUND_UID"
+[[ -n "${UNBOUND_GID+x}" ]] && reown group _unbound "$UNBOUND_GID"
+
 # in kilobytes
 RESERVED_MEM=$(( 12 * 1024 )) # 12 MB
 AVAILABLE_MEM=$((grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g')

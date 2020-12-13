@@ -113,7 +113,7 @@ server:
 
     # Enable chroot (i.e, change apparent root directory for the current
     # running process and its children)
-    chroot: "/opt/unbound/etc/unbound"
+    chroot: "/opt/unbound/var/unbound"
 
     # Deny queries of type ANY with an empty response.
     deny-any: yes

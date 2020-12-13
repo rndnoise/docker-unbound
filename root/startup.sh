@@ -85,13 +85,13 @@ sed -i"" \
     -e "s/@SLABS@/${SLABS}/" \
     $ROOT/etc/unbound/unbound.conf
 
-mkdir -p                                       $ROOT/etc/unbound/dev
-cp -a /dev/{null,stderr,stdout,random,urandom} $ROOT/etc/unbound/dev/
+mkdir -p                                       $ROOT/var/unbound/dev
+cp -a /dev/{null,stderr,stdout,random,urandom} $ROOT/var/unbound/dev/
 
-mkdir -p -m 700         $ROOT/etc/unbound/var
-chown _unbound:_unbound $ROOT/etc/unbound/var
+mkdir -p -m 700         $ROOT/var/unbound/var
+chown _unbound:_unbound $ROOT/var/unbound/var
 
-rm -f $ROOT/etc/unbound/unbound.pid
+rm -f $ROOT/var/unbound/unbound.pid
 
 if [[ -z ${VERBOSE+x} || "$VERBOSE" -le 0 ]]; then
     VERBOSE=""

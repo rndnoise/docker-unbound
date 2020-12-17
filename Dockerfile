@@ -26,7 +26,6 @@ RUN set -eux && \
     ( gpg --no-tty --keyserver ipv4.pool.sks-keyservers.net --recv-keys "$OPENSSL_OPGP" \
       || gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys "$OPENSSL_OPGP" ) && \
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
-    # && \
 
 RUN tar xzf openssl.tar.gz && \
     cd "${OPENSSL_VERSION}" && \

@@ -91,7 +91,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
         --enable-tfo-client \
         --enable-event-api && \
     CFLAGS.sh make install && \
-    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.example && \
+    rm /opt/unbound/etc/unbound/unbound.conf && \
     apt-get purge -y --auto-remove $build_deps && \
     rm -rf \
         /opt/unbound/share/man \
@@ -116,7 +116,7 @@ RUN set -eux && \
     c_rehash && \
     groupadd _unbound && \
     useradd -g _unbound -s /etc -d /opt/unbound _unbound && \
-    mkdir /opt/unbound/etc/unbound.example/ &&\
+    mkdir -p /opt/unbound/etc/unbound.example/ &&\
     apt-get purge -y --auto-remove && \
     rm -rf \
         /opt/unbound/share/man \

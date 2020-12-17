@@ -51,19 +51,24 @@ function reown {
             ;;
     esac
 
-    echo "changing id of $kind $name from $old to $new"
-    $mod $new $name
+    if [ "$old" != "$new" ]; then
+        echo "changing id of $kind $name from $old to $new"
+        $mod $new $name
 
-    for path in $(find / "-$kind" "$old" 2>/dev/null); do
-        echo "fixing ownership of $path"
-        $cmd "$name" "$path"
-    done
+        for path in $(find / "-$kind" "$old" 2>/dev/null); do
+            echo "fixing ownership of $path"
+            $cmd "$name" "$path"
+        done
+    fi
 }
 
-function calculate {
+function writeconf {
+    local RESERVED_MEM AVAILABLE_MEM RR_CACHE_SIZE MSG_CACHE_SIZE NPROC \
+          LG_NPROC OUTGOING_RANGE QUERIES_PER_THREAD SLABS THREADS
+
     # in kilobytes
-    local RESERVED_MEM=$(( 12 * 1024 )) # 12 MB
-    local AVAILABLE_MEM=$((grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g')
+    RESERVED_MEM=$(( 12 * 1024 )) # 12 MB
+    AVAILABLE_MEM=$((grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g')
 
     if [ $AVAILABLE_MEM -le $((2 * $RESERVED_MEM)) ]; then
         echo "Not enough memory" >&2
@@ -86,7 +91,7 @@ function calculate {
 
     if [ "$NPROC" -gt 1 ]; then
         export NPROC
-        local LG_NPROC=$(perl -e 'printf "%d\n", int(log($ENV{NPROC})/log(2.0));')
+        LG_NPROC=$(perl -e 'printf "%d\n", int(log($ENV{NPROC})/log(2.0));')
 
         # Power of 2 that's close to nproc
         SLABS=$(( 2 ** LG_NPROC))
@@ -95,6 +100,15 @@ function calculate {
         SLABS=4
         THREADS=1
     fi
+
+    sed -i"" \
+        -e "s/@QUERIES_PER_THREAD@/${QUERIES_PER_THREAD}/" \
+        -e "s/@OUTGOING_RANGE@/${OUTGOING_RANGE}/" \
+        -e "s/@MSG_CACHE_SIZE@/${MSG_CACHE_SIZE}/" \
+        -e "s/@RR_CACHE_SIZE@/${RR_CACHE_SIZE}/" \
+        -e "s/@THREADS@/${THREADS}/" \
+        -e "s/@SLABS@/${SLABS}/" \
+        "$ROOT/etc/unbound/unbound.conf"
 }
 
 if [[ -z ${VERBOSE+x} || "$VERBOSE" -le 0 ]]; then
@@ -111,14 +125,7 @@ if [ ! -f "$CONF" ]; then
     cp "$ROOT/etc/unbound.example/*." "$(dirname "$CONF")"
 fi
 
-sed -i"" \
-    -e "s/@QUERIES_PER_THREAD@/${QUERIES_PER_THREAD}/" \
-    -e "s/@OUTGOING_RANGE@/${OUTGOING_RANGE}/" \
-    -e "s/@MSG_CACHE_SIZE@/${MSG_CACHE_SIZE}/" \
-    -e "s/@RR_CACHE_SIZE@/${RR_CACHE_SIZE}/" \
-    -e "s/@THREADS@/${THREADS}/" \
-    -e "s/@SLABS@/${SLABS}/" \
-    "$ROOT/etc/unbound/unbound.conf"
+writeconf
 
 CHROOT=$(readconf "chroot")
 ANCHOR=$(readconf "auto-trust-anchor-file")
@@ -127,14 +134,6 @@ LOGFILE=$(readconf "logfile")
 # These are assumed to be relative to chroot
 ANCHOR="$CHROOT/$ANCHOR"
 LOGFILE="$CHROOT/$LOGFILE"
-
-# Ensure anchor file is no older than 24 hours
-if [ ! -f "$ANCHOR" ] || find "$ANCHOR" -mmin +1440 &>/dev/null; then
-    echo "updating anchor: $ANCHOR"
-    mkdir -p -m 755 $(dirname "$ANCHOR")
-    chown _unbound:_unbound $(dirname "$ANCHOR")
-    "$ROOT/sbin/unbound-anchor" -a "$ANCHOR"
-fi
 
 echo "log file: $LOGFILE"
 echo "anchor file: $ANCHOR"
@@ -150,11 +149,30 @@ mkdir -p -m 755 "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 cp -a /dev/{null,random,urandom}   "$CHROOT/dev"
 cp -r "$ROOT/etc/unbound/"*        "$CHROOT/etc/unbound"
-cp    "$ROOT/etc/unbound/root.key" "$CHROOT/$ANCHOR"
 chown -R _unbound:_unbound "$CHROOT" "$LOGFILE"
+
+# Do we have an anchor file from the host OS volume?
+if [ -f "$ROOT/etc/unbound/root.key" ]; then
+    # Use whichever is newest between the two
+    if [ ! -f "$ANCHOR" ] || [ "$ROOT/etc/unbound/root.key" -nt "$ANCHOR" ]; then
+        cp -f "$ROOT/etc/unbound/root.key" "$ANCHOR"
+    fi
+fi
+
+if [ ! -f "$ANCHOR" ] || [ -n "$(find "$ANCHOR" -mmin +1440)" ]; then
+    echo "updating anchor: $ANCHOR"
+
+    # unbound-anchor exits with code 1 if an update was performed, so we must
+    # use `|| true` to prevent our script from terminating
+    "$ROOT/sbin/unbound-anchor" -v -a "$ROOT/etc/unbound/root.key" -b 0.0.0.0 || true#-r "$ROOT/etc/unbound/root.hints" || true
+
+    mkdir -p -m 755 $(dirname "$ANCHOR")
+    cp -f "$ROOT/etc/unbound/root.key" "$ANCHOR"
+    chown -R _unbound:_unbound "$(dirname "$ANCHOR")"
+fi
 
 [[ -n "${UNBOUND_UID+x}" ]] && reown user  _unbound "$UNBOUND_UID"
 [[ -n "${UNBOUND_GID+x}" ]] && reown group _unbound "$UNBOUND_GID"
 
 echo "starting unbound"
-exec "$ROOT"/sbin/unbound -c "$CONF" -d $VERBOSE
+exec "$ROOT"/sbin/unbound -c "$CONF" -d -d -p $VERBOSE

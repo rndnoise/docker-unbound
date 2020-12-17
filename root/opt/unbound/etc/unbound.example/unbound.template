@@ -18,7 +18,7 @@ server:
   cache-min-ttl: 300
 
   # Set the working directory for the program.
-  directory: "/opt/unbound/etc/unbound"
+  directory: "/opt/unbound/root/"
 
   # RFC 6891. Number of bytes size to advertise as the EDNS reassembly buffer
   # size. This is the value put into datagrams over UDP towards peers.
@@ -118,11 +118,11 @@ server:
 
   # File with trust anchor for one zone, which is tracked with RFC5011
   # probes. Unbound must have write permission to this file and directory.
-  auto-trust-anchor-file: "/etc/unbound/root.key"
+  auto-trust-anchor-file: etc/unbound/root.key
 
   # Enable chroot (i.e, change apparent root directory for the current
   # running process and its children)
-  chroot: "/opt/unbound/root"
+  chroot: /opt/unbound/root
 
   # Deny queries of type ANY with an empty response.
   deny-any: yes
@@ -173,9 +173,9 @@ server:
   private-address: 172.16.0.0/12
   private-address: 192.168.0.0/16
   private-address: 169.254.0.0/16
-  private-address: fd00::/8
-  private-address: fe80::/10
-  private-address: ::ffff:0:0/96
+  #rivate-address: fd00::/8
+  #rivate-address: fe80::/10
+  #rivate-address: ::ffff:0:0/96
 
   # This domain and its subdomains are allowed to contain private addresses, and
   # local-data statements are also allowed to contain private addresses.
@@ -307,21 +307,22 @@ server:
   # ROOT SERVERS
   ###########################################################################
 
-  root-hints: /etc/unbound/root.hints
+  root-hints: etc/unbound/root.hints
 
   ###########################################################################
   # LOCAL ZONE
   ###########################################################################
 
   # Include file for local-data and local-data-ptr
-  include: /etc/unbound/a-records.conf
-  include: /etc/unbound/srv-records.conf
+  include: etc/unbound/a-records.conf
+  include: etc/unbound/srv-records.conf
 
   ###########################################################################
   # FORWARD ZONE
   ###########################################################################
 
-  include: /etc/unbound/forward-records.conf
+  include: etc/unbound/forward-records.conf
 
 remote-control:
   control-enable: no
+  control-interface: 127.0.0.1

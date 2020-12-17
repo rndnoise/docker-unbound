@@ -57,7 +57,7 @@ ARG TARGETPLATFORM
 ENV TARGETPLATFORM=$TARGETPLATFORM \
     UNBOUND_VERSION=1.13.0 \
     UNBOUND_SHA256=a954043a95b0326ca4037e50dace1f3a207a0a19e9a4a22f4c6718fc623db2a1 \
-    UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/1.13.0.tar.gz
+    UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/unbound-1.13.0.tar.gz
 
 WORKDIR /tmp/src
 
@@ -74,7 +74,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
       libexpat1 && \
     c_rehash && \
     curl -sSL "${UNBOUND_SOURCE}" -o unbound.tar.gz && \
-    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
+    echo "${UNBOUND_SHA256} ./unbound.tar.gz" | sha256sum -c - && \
     tar xzf unbound.tar.gz && \
     rm -f unbound.tar.gz && \
     cd "unbound-${UNBOUND_VERSION}" && \

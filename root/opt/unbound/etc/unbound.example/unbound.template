@@ -18,7 +18,7 @@ server:
   cache-min-ttl: 300
 
   # Set the working directory for the program.
-  directory: "/opt/unbound/root/"
+  directory: /opt/unbound/root
 
   # RFC 6891. Number of bytes size to advertise as the EDNS reassembly buffer
   # size. This is the value put into datagrams over UDP towards peers.
@@ -58,7 +58,7 @@ server:
   log-servfail: no
 
   # Further limit logging
-  logfile: /var/log/unbound.log
+  logfile: var/log/unbound.log
 
   # Only log errors
   verbosity: 0

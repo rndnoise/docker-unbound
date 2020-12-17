@@ -51,15 +51,18 @@ function reown {
             ;;
     esac
 
-    if [ "$old" != "$new" ]; then
-        echo "changing id of $kind $name from $old to $new"
-        $mod $new $name
-
-        for path in $(find / "-$kind" "$old" 2>/dev/null); do
-            echo "fixing ownership of $path"
-            $cmd "$name" "$path"
-        done
+    if [ $old -eq $new ]; then
+        echo "not changing id of $kind $name, it already matches host"
+        return
     fi
+
+    echo "changing id of $kind $name from $old to $new"
+    $mod $new $name
+
+    for path in $(find / "-$kind" "$old" 2>/dev/null); do
+        echo "fixing ownership of $path"
+        $cmd "$name" "$path"
+    done
 }
 
 function writeconf {

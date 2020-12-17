@@ -56,13 +56,13 @@ COPY CFLAGS.sh /usr/bin/CFLAGS.sh
 
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=$TARGETPLATFORM \
-    UNBOUND_VERSION=1.11.0 \
-    UNBOUND_SHA256=9f2f0798f76eb8f30feaeda7e442ceed479bc54db0e3ac19c052d68685e51ef7 \
-    UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/unbound-1.11.0.tar.gz
+    UNBOUND_VERSION=1.13.0 \
+    UNBOUND_SHA256=a954043a95b0326ca4037e50dace1f3a207a0a19e9a4a22f4c6718fc623db2a1 \
+    UNBOUND_SOURCE=https://nlnetlabs.nl/downloads/unbound/$UNBOUND_VERSION.tar.gz
 
 WORKDIR /tmp/src
 
-COPY --from=openssl /opt/openssl  /opt/openssl
+COPY --from=openssl /opt/openssl /opt/openssl
 
 RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
     set -eux && \
@@ -80,7 +80,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev make" && \
     rm -f unbound.tar.gz && \
     cd "unbound-${UNBOUND_VERSION}" && \
     groupadd _unbound && \
-    useradd -g _unbound -s /etc -d /dev/null _unbound && \
+    useradd -g _unbound -s /etc -d /opt/unbound _unbound && \
     CFLAGS.sh ./configure \
         --disable-dependency-tracking \
         --prefix=/opt/unbound \
@@ -116,7 +116,8 @@ RUN set -eux && \
       libexpat1 && \
     c_rehash && \
     groupadd _unbound && \
-    useradd -g _unbound -s /etc -d /dev/null _unbound && \
+    useradd -g _unbound -s /etc -d /opt/unbound _unbound && \
+    mkdir /opt/unbound/etc/unbound.example/ &&\
     apt-get purge -y --auto-remove && \
     rm -rf \
         /opt/unbound/share/man \
@@ -124,9 +125,9 @@ RUN set -eux && \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-COPY root/opt/unbound/etc/unbound/* /opt/unbound/etc/unbound/
-COPY root/startup.sh                /
-RUN chmod +x                        /startup.sh
+COPY root/opt/unbound/etc/unbound.example/* /opt/unbound/etc/unbound.example/
+COPY root/startup.sh                        /
+RUN chmod +x                                /startup.sh
 
 WORKDIR /opt/unbound/
 ENV PATH /opt/unbound/sbin:"$PATH"
